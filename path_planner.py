@@ -344,61 +344,38 @@ class PathPlanner:
         self.commands.append(cmd)
         
     def set_pickers_position(self, position, wait=True, speed=700):
-        """Set front pickers position using predefined angle mapping.
-
-        This records the desired picker angle in the command list so generated
-        code and the GUI can show which position was requested.
         """
-        # Map positions to target angles (degrees). Values derived from user data.
-        offset = -33
-        multiply = -3
-        angle_map = {
-            ALL_UP: 0,
-            MIDDLE_DROP_BLOCKS: (68 + offset) * multiply,
-            DROP_BLOCKS: -105,
-            PICK_BLOCKS_FRONT: -105,
-            PULL_ROVER: -81,
-            HOLD_BLOCKS_FRONT: -75,
-            HOLD_BLOCKS_LOWER: -80,
-        }
-
-        target_angle = angle_map.get(position, 0)
-
+        Add a picker position command to the path.
+        
+        Args:
+            position: Position constant (ALL_UP, BELOW_LID, etc.)
+            wait: Whether to wait for completion
+            speed: Motor speed
+        """
+        # This doesn't change robot position, just add to commands
         cmd = {
             'type': 'set_pickers_position',
             'position': position,
             'wait': wait,
-            'speed': speed,
-            'target_angle': target_angle
+            'speed': speed
         }
         self.commands.append(cmd)
         
     def set_ball_picker_position(self, position, wait=True, speed=1000):
-        """Set ball picker (front/back) position using predefined angles.
-
-        The mapping uses an offset of +20 degrees as provided by the user.
         """
-        offset = 20
-        angle_map = {
-            PICK_BALLS: 80 + offset,
-            DROP_BALLS: 0,
-            SLIDE_BALL: 67 + offset,
-            PICK_BLOCKS: 0,
-            HOLD_BLOCKS: 45 + offset,
-            PICK_BLOCKS_BACKARM: 67 + offset,
-            HOLD_BLOCKS_BACKARM: 20 + offset,
-            ALL_THE_WAY_DOWN: 90 + offset,
-            HOLD_BLOCKS_LOWER_BP: 30 + offset,
-        }
-
-        target_angle = angle_map.get(position, 0)
-
+        Add a ball picker position command to the path.
+        
+        Args:
+            position: Position constant (PICK_BALLS, DROP_BALLS, etc.)
+            wait: Whether to wait for completion
+            speed: Motor speed
+        """
+        # This doesn't change robot position, just add to commands
         cmd = {
             'type': 'set_ball_picker_position',
             'position': position,
             'wait': wait,
-            'speed': speed,
-            'target_angle': target_angle
+            'speed': speed
         }
         self.commands.append(cmd)
         
