@@ -368,9 +368,8 @@ Arc System:
             
         elif self.mode_var.get() == "pickers":
             # Position
-            positions = ["ALL_UP", "BELOW_LID", "HALF_LIFT_LID", "LIFT_LID", "DROP_BLOCKS", 
-                        "DROP_BLOCKS_LOWER", "PICK_RED", "PICK_WHITE", "PICK_GREEN", 
-                        "PICK_YELLOW", "HOLD_DRONE", "GROUND", "MIDDLE_DROP_BLOCKS"]
+            positions = ["ALL_UP", "MIDDLE_DROP_BLOCKS", "DROP_BLOCKS", "PICK_BLOCKS_FRONT", "PULL_ROVER", 
+                        "HOLD_BLOCKS_FRONT", "HOLD_BLOCKS_LOWER"]
             ttk.Label(self.params_frame, text="Position:").pack(anchor=tk.W)
             self.picker_position_var = tk.StringVar(value="ALL_UP")
             picker_combo = ttk.Combobox(self.params_frame, textvariable=self.picker_position_var, values=positions)
@@ -383,7 +382,7 @@ Arc System:
             
         elif self.mode_var.get() == "ball_picker":
             # Position
-            positions = ["PICK_BALLS", "DROP_BALLS", "SLIDE_BALL", "ROVER"]
+            positions = ["PICK_BALLS", "DROP_BALLS", "SLIDE_BALL", "PICK_BLOCKS", "HOLD_BLOCKS", "PICK_BLOCKS_BACKARM", "HOLD_BLOCKS_BACKARM", "ALL_THE_WAY_DOWN", "HOLD_BLOCKS_LOWER"]
             ttk.Label(self.params_frame, text="Position:").pack(anchor=tk.W)
             self.ball_picker_position_var = tk.StringVar(value="PICK_BALLS")
             ball_combo = ttk.Combobox(self.params_frame, textvariable=self.ball_picker_position_var, values=positions)
