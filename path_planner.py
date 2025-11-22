@@ -18,25 +18,24 @@ matplotlib.use('TkAgg')
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
-# Picker position constants (front pickers)
+# Right picker position constants
+# These numeric values are used when generating robot code
 ALL_UP = 0
 DROP_BLOCKS = 1
-PICK_BLOCKS_FRONT = 2
-MIDDLE_DROP_BLOCKS = 3
-PULL_ROVER = 4
-HOLD_BLOCKS_FRONT = 5
-HOLD_BLOCKS_LOWER = 6
+PICK_BLOCKS = 2
+HOLD_BLOCKS = 3
+PICK_DRONE = 4
 
-# Ball picker position constants
-PICK_BALLS = 100
-DROP_BALLS = 101
-SLIDE_BALL = 102
-PICK_BLOCKS = 103
-HOLD_BLOCKS = 104
-PICK_BLOCKS_BACKARM = 105
-HOLD_BLOCKS_BACKARM = 106
-ALL_THE_WAY_DOWN = 107
-HOLD_BLOCKS_LOWER_BP = 108
+# Left picker position constants (shares many same values but include ROVER)
+ROVER = 4
+
+# Back-arm (ball/back) picker position constants
+PICK_BALLS = 0
+DROP_BALLS = 1
+SLIDE_BALL = 2
+PICK_BLOCKS_BACKARM = 11
+HOLD_BLOCKS_BACKARM = 12
+RYGW_SWAP_PICK = 13
 
 class PathPlanner:
     """
@@ -150,7 +149,7 @@ class PathPlanner:
         self.heading = math.degrees(new_heading_rad)
         self._add_to_history()
         
-    def drive_straight(self, distance, speed=400, backward=False, target_angle=None, 
+    def drive_straight(self, distance, speed=600, backward=False, target_angle=None, 
                       till_black_line=False, till_white_line=False, detect_stall=False,
                       stop_when_load_above=0, slow_down=True, slow_speed_override=50):
         """
@@ -194,7 +193,7 @@ class PathPlanner:
         
         self.commands.append(cmd)
         
-    def turn_to_angle(self, target_angle, speed=400, force_turn=None, one_wheel_turn=False):
+    def turn_to_angle(self, target_angle, speed=600, force_turn=None, one_wheel_turn=False):
         """
         Add a turn to angle command to the path.
         
@@ -228,7 +227,7 @@ class PathPlanner:
         
         self.commands.append(cmd)
         
-    def awaitarc(self, radius, angle=None, distance=None, speed=300, then="HOLD", wait=True):
+    def awaitarc(self, radius, angle=None, distance=None, speed=600, then="HOLD", wait=True):
         """
         Add an arc command to the path (similar to awaitarc).
         
@@ -272,7 +271,7 @@ class PathPlanner:
         
         self.commands.append(cmd)
         
-    def curve(self, radius, angle, speed=300, acceleration=450, deceleration=0, 
+    def curve(self, radius, angle, speed=600, acceleration=450, deceleration=0, 
               dont_accelerate=False, dont_decelerate=False):
         """
         Add a curve command to the path (legacy method).
@@ -343,7 +342,7 @@ class PathPlanner:
         
         self.commands.append(cmd)
         
-    def set_pickers_position(self, position, wait=True, speed=700):
+    def set_pickers_position(self, position, wait=True, speed=600):
         """
         Add a picker position command to the path.
         
@@ -360,8 +359,44 @@ class PathPlanner:
             'speed': speed
         }
         self.commands.append(cmd)
+
+    def setRightPickersPosition(self, position, wait=True, speed=600):
+        """
+        Add a right/front picker position command to the path.
+        """
+        cmd = {
+            'type': 'setRightPickersPosition',
+            'position': position,
+            'wait': wait,
+            'speed': speed
+        }
+        self.commands.append(cmd)
+
+    def setLeftPickersPosition(self, position, wait=True, speed=600):
+        """
+        Add a left picker position command to the path.
+        """
+        cmd = {
+            'type': 'setLeftPickersPosition',
+            'position': position,
+            'wait': wait,
+            'speed': speed
+        }
+        self.commands.append(cmd)
+
+    def setBackarmPosition(self, position, wait=True, speed=600):
+        """
+        Add a back-arm (ball/back) picker position command to the path.
+        """
+        cmd = {
+            'type': 'setBackarmPosition',
+            'position': position,
+            'wait': wait,
+            'speed': speed
+        }
+        self.commands.append(cmd)
         
-    def set_ball_picker_position(self, position, wait=True, speed=1000):
+    def set_ball_picker_position(self, position, wait=True, speed=600):
         """
         Add a ball picker position command to the path.
         
@@ -559,13 +594,39 @@ class PathPlanner:
     \"\"\"
 """
         
+        # Helper maps to convert numeric positions to constant names for clearer generated code
+        RIGHT_POS_NAMES = {
+            ALL_UP: 'ALL_UP',
+            DROP_BLOCKS: 'DROP_BLOCKS',
+            PICK_BLOCKS: 'PICK_BLOCKS',
+            HOLD_BLOCKS: 'HOLD_BLOCKS',
+            PICK_DRONE: 'PICK_DRONE',
+        }
+
+        LEFT_POS_NAMES = {
+            ALL_UP: 'ALL_UP',
+            PICK_BLOCKS: 'PICK_BLOCKS',
+            HOLD_BLOCKS: 'HOLD_BLOCKS',
+            ROVER: 'ROVER',
+            DROP_BLOCKS: 'DROP_BLOCKS',
+        }
+
+        BACK_POS_NAMES = {
+            PICK_BALLS: 'PICK_BALLS',
+            DROP_BALLS: 'DROP_BALLS',
+            SLIDE_BALL: 'SLIDE_BALL',
+            PICK_BLOCKS_BACKARM: 'PICK_BLOCKS_BACKARM',
+            HOLD_BLOCKS_BACKARM: 'HOLD_BLOCKS_BACKARM',
+            RYGW_SWAP_PICK: 'RYGW_SWAP_PICK',
+        }
+
         # Add imports if needed
         imports_needed = set()
         for cmd in self.commands:
-            if cmd['type'] == 'set_pickers_position':
-                imports_needed.add('ALL_UP, BELOW_LID, HALF_LIFT_LID, LIFT_LID, DROP_BLOCKS, DROP_BLOCKS_LOWER, PICK_RED, PICK_WHITE, PICK_GREEN, PICK_YELLOW, HOLD_DRONE, GROUND, MIDDLE_DROP_BLOCKS')
-            elif cmd['type'] == 'set_ball_picker_position':
-                imports_needed.add('PICK_BALLS, DROP_BALLS, SLIDE_BALL, ROVER')
+            if cmd['type'] in ('set_pickers_position', 'setRightPickersPosition', 'setLeftPickersPosition'):
+                imports_needed.add('ALL_UP, DROP_BLOCKS, PICK_BLOCKS, HOLD_BLOCKS, PICK_DRONE, ROVER')
+            elif cmd['type'] in ('set_ball_picker_position', 'setBackarmPosition'):
+                imports_needed.add('PICK_BALLS, DROP_BALLS, SLIDE_BALL, PICK_BLOCKS_BACKARM, HOLD_BLOCKS_BACKARM, RYGW_SWAP_PICK')
             elif cmd['type'] in ['drive_straight', 'turn_to_angle', 'curve', 'awaitarc', 'follow_line']:
                 imports_needed.add('Stop')
                 
@@ -660,21 +721,43 @@ class PathPlanner:
                     code += f", startcmSLOW={cmd['start_cm_slow']}"
                 code += ")\n"
                 
-            elif cmd['type'] == 'set_pickers_position':
-                code += f"    setPickersPosition("
-                code += f"position={cmd['position']}"
+            elif cmd['type'] in ('set_pickers_position', 'setRightPickersPosition'):
+                code += f"    setRightPickersPosition("
+                pos = cmd['position']
+                # Use constant name when possible
+                if isinstance(pos, int) and pos in RIGHT_POS_NAMES:
+                    code += f"position={RIGHT_POS_NAMES[pos]}"
+                else:
+                    code += f"position={repr(pos)}"
                 if not cmd['wait']:
                     code += ", wait=False"
-                if cmd['speed'] != 700:
+                if cmd['speed'] != 600:
                     code += f", speed={cmd['speed']}"
                 code += ")\n"
-                
-            elif cmd['type'] == 'set_ball_picker_position':
-                code += f"    setBallPickerPosition("
-                code += f"position={cmd['position']}"
+
+            elif cmd['type'] == 'setLeftPickersPosition':
+                code += f"    setLeftPickersPosition("
+                pos = cmd['position']
+                if isinstance(pos, int) and pos in LEFT_POS_NAMES:
+                    code += f"position={LEFT_POS_NAMES[pos]}"
+                else:
+                    code += f"position={repr(pos)}"
                 if not cmd['wait']:
                     code += ", wait=False"
-                if cmd['speed'] != 1000:
+                if cmd['speed'] != 600:
+                    code += f", speed={cmd['speed']}"
+                code += ")\n"
+
+            elif cmd['type'] in ('set_ball_picker_position', 'setBackarmPosition'):
+                code += f"    setBackarmPosition("
+                pos = cmd['position']
+                if isinstance(pos, int) and pos in BACK_POS_NAMES:
+                    code += f"position={BACK_POS_NAMES[pos]}"
+                else:
+                    code += f"position={repr(pos)}"
+                if not cmd['wait']:
+                    code += ", wait=False"
+                if cmd['speed'] != 600:
                     code += f", speed={cmd['speed']}"
                 code += ")\n"
                 

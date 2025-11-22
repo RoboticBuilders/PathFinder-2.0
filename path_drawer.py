@@ -124,8 +124,9 @@ class PathDrawer:
             ("Turn to Angle", "turn"),
             ("Curve", "curve"),
             ("Line Follow", "line_follow"),
-            ("Set Pickers", "pickers"),
-            ("Set Ball Picker", "ball_picker"),
+            ("Set Right Pickers", "right_pickers"),
+            ("Set Left Pickers", "left_pickers"),
+            ("Set Backarm", "backarm"),
             ("Wait", "wait")
         ]
         
@@ -276,7 +277,7 @@ Arc System:
         if self.mode_var.get() == "drive":
             # Speed
             ttk.Label(self.params_frame, text="Speed (mm/s):").pack(anchor=tk.W)
-            self.speed_var = tk.StringVar(value="400")
+            self.speed_var = tk.StringVar(value="600")
             ttk.Entry(self.params_frame, textvariable=self.speed_var).pack(fill=tk.X, pady=(0, 10))
             
             # Backward checkbox
@@ -298,7 +299,7 @@ Arc System:
         elif self.mode_var.get() == "turn":
             # Speed
             ttk.Label(self.params_frame, text="Speed (mm/s):").pack(anchor=tk.W)
-            self.speed_var = tk.StringVar(value="400")
+            self.speed_var = tk.StringVar(value="600")
             ttk.Entry(self.params_frame, textvariable=self.speed_var).pack(fill=tk.X, pady=(0, 10))
             
             # Force turn
@@ -318,7 +319,7 @@ Arc System:
             
             # Speed
             ttk.Label(self.params_frame, text="Speed (mm/s):").pack(anchor=tk.W)
-            self.speed_var = tk.StringVar(value="300")
+            self.speed_var = tk.StringVar(value="600")
             ttk.Entry(self.params_frame, textvariable=self.speed_var).pack(fill=tk.X, pady=(0, 10))
             
             # Arc type selection
@@ -352,7 +353,7 @@ Arc System:
         elif self.mode_var.get() == "line_follow":
             # Speed
             ttk.Label(self.params_frame, text="Speed (mm/s):").pack(anchor=tk.W)
-            self.speed_var = tk.StringVar(value="200")
+            self.speed_var = tk.StringVar(value="600")
             ttk.Entry(self.params_frame, textvariable=self.speed_var).pack(fill=tk.X, pady=(0, 10))
             
             # Edge
@@ -366,31 +367,62 @@ Arc System:
             self.control_color_var = tk.StringVar(value="63")
             ttk.Entry(self.params_frame, textvariable=self.control_color_var).pack(fill=tk.X, pady=(0, 10))
             
-        elif self.mode_var.get() == "pickers":
-            # Position
-            positions = ["ALL_UP", "MIDDLE_DROP_BLOCKS", "DROP_BLOCKS", "PICK_BLOCKS_FRONT", "PULL_ROVER", 
-                        "HOLD_BLOCKS_FRONT", "HOLD_BLOCKS_LOWER"]
+        elif self.mode_var.get() == "right_pickers":
+            # Position - Updated to new arm positions/functions (right/left pickers)
+            positions = [
+                "ALL_UP",
+                "DROP_BLOCKS",
+                "PICK_BLOCKS",
+                "HOLD_BLOCKS",
+                "PICK_DRONE"
+            ]
             ttk.Label(self.params_frame, text="Position:").pack(anchor=tk.W)
             self.picker_position_var = tk.StringVar(value="ALL_UP")
             picker_combo = ttk.Combobox(self.params_frame, textvariable=self.picker_position_var, values=positions)
             picker_combo.pack(fill=tk.X, pady=(0, 10))
-            
+
             # Speed
             ttk.Label(self.params_frame, text="Speed:").pack(anchor=tk.W)
-            self.speed_var = tk.StringVar(value="700")
+            self.speed_var = tk.StringVar(value="600")
             ttk.Entry(self.params_frame, textvariable=self.speed_var).pack(fill=tk.X, pady=(0, 10))
             
-        elif self.mode_var.get() == "ball_picker":
-            # Position
-            positions = ["PICK_BALLS", "DROP_BALLS", "SLIDE_BALL", "PICK_BLOCKS", "HOLD_BLOCKS", "PICK_BLOCKS_BACKARM", "HOLD_BLOCKS_BACKARM", "ALL_THE_WAY_DOWN", "HOLD_BLOCKS_LOWER"]
+        elif self.mode_var.get() == "left_pickers":
+            # Left pickers positions
+            positions = [
+                "ALL_UP",
+                "PICK_BLOCKS",
+                "HOLD_BLOCKS",
+                "ROVER",
+                "DROP_BLOCKS"
+            ]
+            ttk.Label(self.params_frame, text="Position:").pack(anchor=tk.W)
+            self.left_picker_position_var = tk.StringVar(value="HOLD_BLOCKS")
+            left_combo = ttk.Combobox(self.params_frame, textvariable=self.left_picker_position_var, values=positions)
+            left_combo.pack(fill=tk.X, pady=(0, 10))
+
+            # Speed
+            ttk.Label(self.params_frame, text="Speed:").pack(anchor=tk.W)
+            self.speed_var = tk.StringVar(value="600")
+            ttk.Entry(self.params_frame, textvariable=self.speed_var).pack(fill=tk.X, pady=(0, 10))
+
+        elif self.mode_var.get() == "backarm":
+            # Position - Updated to new back-arm positions/functions
+            positions = [
+                "PICK_BALLS",
+                "DROP_BALLS",
+                "SLIDE_BALL",
+                "PICK_BLOCKS_BACKARM",
+                "HOLD_BLOCKS_BACKARM",
+                "RYGW_SWAP_PICK"
+            ]
             ttk.Label(self.params_frame, text="Position:").pack(anchor=tk.W)
             self.ball_picker_position_var = tk.StringVar(value="PICK_BALLS")
             ball_combo = ttk.Combobox(self.params_frame, textvariable=self.ball_picker_position_var, values=positions)
             ball_combo.pack(fill=tk.X, pady=(0, 10))
-            
+
             # Speed
             ttk.Label(self.params_frame, text="Speed:").pack(anchor=tk.W)
-            self.speed_var = tk.StringVar(value="1000")
+            self.speed_var = tk.StringVar(value="600")
             ttk.Entry(self.params_frame, textvariable=self.speed_var).pack(fill=tk.X, pady=(0, 10))
             
         elif self.mode_var.get() == "wait":
@@ -893,20 +925,52 @@ Arc System:
                     control_color=control_color
                 )
                 
-            elif mode == "pickers":
-                position = self.picker_position_var.get()
+            elif mode == "right_pickers":
+                pos_str = self.picker_position_var.get()
                 speed = int(self.speed_var.get())
-                
-                self.planner.set_pickers_position(
+                # Map UI string to numeric constant
+                RIGHT_MAP = {
+                    'ALL_UP': 0,
+                    'DROP_BLOCKS': 1,
+                    'PICK_BLOCKS': 2,
+                    'HOLD_BLOCKS': 3,
+                    'PICK_DRONE': 4
+                }
+                position = RIGHT_MAP.get(pos_str, 0)
+                self.planner.setRightPickersPosition(
                     position=position,
                     speed=speed
                 )
-                
-            elif mode == "ball_picker":
-                position = self.ball_picker_position_var.get()
+
+            elif mode == "left_pickers":
+                pos_str = self.left_picker_position_var.get()
                 speed = int(self.speed_var.get())
-                
-                self.planner.set_ball_picker_position(
+                LEFT_MAP = {
+                    'ALL_UP': 0,
+                    'PICK_BLOCKS': 2,
+                    'HOLD_BLOCKS': 3,
+                    'ROVER': 4,
+                    'DROP_BLOCKS': 1
+                }
+                position = LEFT_MAP.get(pos_str, 3)
+                self.planner.setLeftPickersPosition(
+                    position=position,
+                    speed=speed
+                )
+
+            elif mode == "backarm":
+                pos_str = self.ball_picker_position_var.get()
+                speed = int(self.speed_var.get())
+                BACK_MAP = {
+                    'PICK_BALLS': 0,
+                    'DROP_BALLS': 1,
+                    'SLIDE_BALL': 2,
+                    'PICK_BLOCKS_BACKARM': 11,
+                    'HOLD_BLOCKS_BACKARM': 12,
+                    'RYGW_SWAP_PICK': 13
+                }
+                position = BACK_MAP.get(pos_str, 0)
+                self.planner.setBackarmPosition(
                     position=position,
                     speed=speed
                 )
@@ -1018,18 +1082,27 @@ Arc System:
             self._replay_follow_line(**params)
         elif cmd['type'] == 'set_pickers_position':
             params = {k: v for k, v in cmd.items() if k != 'type'}
-            # Update position without adding to commands list
-            self._replay_set_pickers_position(**params)
+            # Backwards compatibility: treat as right pickers
+            self._replay_setRightPickersPosition(**params)
         elif cmd['type'] == 'set_ball_picker_position':
             params = {k: v for k, v in cmd.items() if k != 'type'}
-            # Update position without adding to commands list
-            self._replay_set_ball_picker_position(**params)
+            # Backwards compatibility: treat as backarm
+            self._replay_setBackarmPosition(**params)
+        elif cmd['type'] == 'setRightPickersPosition':
+            params = {k: v for k, v in cmd.items() if k != 'type'}
+            self._replay_setRightPickersPosition(**params)
+        elif cmd['type'] == 'setLeftPickersPosition':
+            params = {k: v for k, v in cmd.items() if k != 'type'}
+            self._replay_setLeftPickersPosition(**params)
+        elif cmd['type'] == 'setBackarmPosition':
+            params = {k: v for k, v in cmd.items() if k != 'type'}
+            self._replay_setBackarmPosition(**params)
         elif cmd['type'] == 'wait':
             params = {k: v for k, v in cmd.items() if k != 'type'}
             # Update position without adding to commands list
             self._replay_wait(**params)
     
-    def _replay_drive_straight(self, distance, speed=400, backward=False, target_angle=None, 
+    def _replay_drive_straight(self, distance, speed=600, backward=False, target_angle=None, 
                               till_black_line=False, till_white_line=False, detect_stall=False,
                               stop_when_load_above=0, slow_down=True, slow_speed_override=50):
         """Replay drive_straight without adding to commands list."""
@@ -1050,7 +1123,7 @@ Arc System:
         }
         self.planner.commands.append(cmd)
     
-    def _replay_turn_to_angle(self, target_angle, speed=400, force_turn=None, one_wheel_turn=False):
+    def _replay_turn_to_angle(self, target_angle, speed=600, force_turn=None, one_wheel_turn=False):
         """Replay turn_to_angle without adding to commands list."""
         # Calculate angle change
         current_angle = self.planner.heading
@@ -1075,7 +1148,7 @@ Arc System:
         }
         self.planner.commands.append(cmd)
     
-    def _replay_curve(self, radius, angle, speed=300, acceleration=450, deceleration=0, 
+    def _replay_curve(self, radius, angle, speed=600, acceleration=450, deceleration=0, 
                      dont_accelerate=False, dont_decelerate=False):
         """Replay curve without adding to commands list."""
         self.planner._update_position_after_curve(radius, angle)
@@ -1093,7 +1166,7 @@ Arc System:
         }
         self.planner.commands.append(cmd)
     
-    def _replay_awaitarc(self, radius, angle=None, distance=None, speed=300, then="HOLD", wait=True):
+    def _replay_awaitarc(self, radius, angle=None, distance=None, speed=600, then="HOLD", wait=True):
         """Replay awaitarc without adding to commands list."""
         # Calculate the angle if distance is provided
         if distance is not None:
@@ -1113,7 +1186,7 @@ Arc System:
         }
         self.planner.commands.append(cmd)
     
-    def _replay_bezier_curve(self, start, control, end, speed=300, acceleration=450):
+    def _replay_bezier_curve(self, start, control, end, speed=600, acceleration=450):
         """Replay bezier_curve without adding to commands list."""
         points = self.planner._bezier_curve_points(start, control, end, num=50)
         for i, (x, y) in enumerate(points[1:], 1):
@@ -1164,7 +1237,7 @@ Arc System:
         }
         self.planner.commands.append(cmd)
     
-    def _replay_set_pickers_position(self, position, wait=True, speed=700):
+    def _replay_set_pickers_position(self, position, wait=True, speed=600):
         """Replay set_pickers_position without adding to commands list."""
         # This doesn't change robot position, just add to commands
         cmd = {
@@ -1175,11 +1248,41 @@ Arc System:
         }
         self.planner.commands.append(cmd)
     
-    def _replay_set_ball_picker_position(self, position, wait=True, speed=1000):
+    def _replay_set_ball_picker_position(self, position, wait=True, speed=600):
         """Replay set_ball_picker_position without adding to commands list."""
         # This doesn't change robot position, just add to commands
         cmd = {
             'type': 'set_ball_picker_position',
+            'position': position,
+            'wait': wait,
+            'speed': speed
+        }
+        self.planner.commands.append(cmd)
+
+    def _replay_setRightPickersPosition(self, position, wait=True, speed=600):
+        """Replay setRightPickersPosition without adding to commands list."""
+        cmd = {
+            'type': 'setRightPickersPosition',
+            'position': position,
+            'wait': wait,
+            'speed': speed
+        }
+        self.planner.commands.append(cmd)
+
+    def _replay_setLeftPickersPosition(self, position, wait=True, speed=600):
+        """Replay setLeftPickersPosition without adding to commands list."""
+        cmd = {
+            'type': 'setLeftPickersPosition',
+            'position': position,
+            'wait': wait,
+            'speed': speed
+        }
+        self.planner.commands.append(cmd)
+
+    def _replay_setBackarmPosition(self, position, wait=True, speed=600):
+        """Replay setBackarmPosition without adding to commands list."""
+        cmd = {
+            'type': 'setBackarmPosition',
             'position': position,
             'wait': wait,
             'speed': speed
