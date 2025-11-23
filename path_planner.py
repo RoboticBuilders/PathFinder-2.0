@@ -149,7 +149,7 @@ class PathPlanner:
         self.heading = math.degrees(new_heading_rad)
         self._add_to_history()
         
-    def drive_straight(self, distance, speed=400, backward=False, target_angle=None, 
+    def drive_straight(self, distance, speed=600, backward=False, target_angle=None, 
                       till_black_line=False, till_white_line=False, detect_stall=False,
                       stop_when_load_above=0, slow_down=True, slow_speed_override=50):
         """
@@ -193,7 +193,7 @@ class PathPlanner:
         
         self.commands.append(cmd)
         
-    def turn_to_angle(self, target_angle, speed=400, force_turn=None, one_wheel_turn=False):
+    def turn_to_angle(self, target_angle, speed=600, force_turn=None, one_wheel_turn=False):
         """
         Add a turn to angle command to the path.
         
@@ -227,7 +227,7 @@ class PathPlanner:
         
         self.commands.append(cmd)
         
-    def awaitarc(self, radius, angle=None, distance=None, speed=400, then="HOLD", wait=True):
+    def awaitarc(self, radius, angle=None, distance=None, speed=600, then="HOLD", wait=True):
         """
         Add an arc command to the path (similar to awaitarc).
         
@@ -271,7 +271,7 @@ class PathPlanner:
         
         self.commands.append(cmd)
         
-    def curve(self, radius, angle, speed=400, acceleration=450, deceleration=0, 
+    def curve(self, radius, angle, speed=600, acceleration=450, deceleration=0, 
               dont_accelerate=False, dont_decelerate=False):
         """
         Add a curve command to the path (legacy method).
@@ -383,7 +383,6 @@ class PathPlanner:
             'speed': speed
         }
         self.commands.append(cmd)
-        
 
     def setBackarmPosition(self, position, wait=True, speed=600):
         """
@@ -396,7 +395,6 @@ class PathPlanner:
             'speed': speed
         }
         self.commands.append(cmd)
-        
         
     def set_ball_picker_position(self, position, wait=True, speed=600):
         """
@@ -641,92 +639,99 @@ class PathPlanner:
         # Generate commands
         for i, cmd in enumerate(self.commands):
             code += f"    # Command {i+1}: {cmd['type']}\n"
-
+            
             if cmd['type'] == 'drive_straight':
                 code += f"    gyroStraightWithDrive("
                 code += f"distance={cmd['distance']}, speed={cmd['speed']}"
-                if cmd.get('backward'):
+                if cmd['backward']:
                     code += ", backward=True"
-                if cmd.get('target_angle') is not None:
+                if cmd['target_angle'] is not None:
                     code += f", targetAngle={cmd['target_angle']}"
-                if cmd.get('till_black_line'):
+                if cmd['till_black_line']:
                     code += ", tillBlackLine=True"
-                if cmd.get('till_white_line'):
+                if cmd['till_white_line']:
                     code += ", tillWhiteLine=True"
-                if cmd.get('detect_stall'):
+                if cmd['detect_stall']:
                     code += ", detectStall=True"
-                if not cmd.get('slow_down', True):
+                if cmd['stop_when_load_above'] > 0:
+                    code += f", stopWhenLoadAbove={cmd['stop_when_load_above']}"
+                if not cmd['slow_down']:
                     code += ", slowDown=False"
-                if cmd.get('slow_speed_override', 50) != 50:
+                if cmd['slow_speed_override'] != 50:
                     code += f", slowSpeedOverride={cmd['slow_speed_override']}"
                 code += ")\n"
-
+                
             elif cmd['type'] == 'turn_to_angle':
-                code += f"    turnToAngle(targetAngle={cmd['target_angle']}, speed={cmd['speed']}"
-                if cmd.get('force_turn'):
+                code += f"    turnToAngle("
+                code += f"targetAngle={cmd['target_angle']}, speed={cmd['speed']}"
+                if cmd['force_turn']:
                     code += f", forceTurn=FORCETURN_{cmd['force_turn'].upper()}"
-                if cmd.get('one_wheel_turn'):
+                if cmd['one_wheel_turn']:
                     code += ", oneWheelTurn=True"
                 code += ")\n"
-
+                
             elif cmd['type'] == 'curve':
-                code += f"    curve(radius={cmd['radius']}, angle={cmd['angle']}, speed={cmd['speed']}"
-                if cmd.get('acceleration', 450) != 450:
+                code += f"    curve("
+                code += f"radius={cmd['radius']}, angle={cmd['angle']}, speed={cmd['speed']}"
+                if cmd['acceleration'] != 450:
                     code += f", acceleration={cmd['acceleration']}"
-                if cmd.get('deceleration', 0) != 0:
+                if cmd['deceleration'] != 0:
                     code += f", deceleration={cmd['deceleration']}"
-                if cmd.get('dont_accelerate'):
+                if cmd['dont_accelerate']:
                     code += ", dont_accelerate=True"
-                if cmd.get('dont_decelerate'):
+                if cmd['dont_decelerate']:
                     code += ", dont_decelerate=True"
                 code += ")\n"
-
+                
             elif cmd['type'] == 'awaitarc':
-                code += f"    awaitarc(radius={cmd['radius']}, speed={cmd['speed']}"
-                if cmd.get('angle') is not None:
+                code += f"    awaitarc("
+                code += f"radius={cmd['radius']}, speed={cmd['speed']}"
+                if cmd['angle'] is not None:
                     code += f", angle={cmd['angle']}"
-                if cmd.get('distance') is not None:
+                if cmd['distance'] is not None:
                     code += f", distance={cmd['distance']}"
-                if cmd.get('then') != "HOLD":
+                if cmd['then'] != "HOLD":
                     code += f", then=Stop.{cmd['then']}"
-                if not cmd.get('wait', True):
+                if not cmd['wait']:
                     code += ", wait=False"
                 code += ")\n"
-
+                
             elif cmd['type'] == 'follow_line':
-                code += f"    followBlackLinePID(distanceInMM={cmd['distance']}, speed={cmd['speed']}"
-                if cmd.get('edge') == 'left':
+                code += f"    followBlackLinePID("
+                code += f"distanceInMM={cmd['distance']}, speed={cmd['speed']}"
+                if cmd['edge'] == 'left':
                     code += ", edge=LINE_FOLLOWER_EDGE_LEFT"
                 else:
                     code += ", edge=LINE_FOLLOWER_EDGE_RIGHT"
-                if cmd.get('control_color', 63) != 63:
+                if cmd['control_color'] != 63:
                     code += f", controlColor={cmd['control_color']}"
-                if cmd.get('kp', 0.5) != 0.5:
+                if cmd['kp'] != 0.5:
                     code += f", kp={cmd['kp']}"
-                if cmd.get('ki', 0) != 0:
+                if cmd['ki'] != 0:
                     code += f", ki={cmd['ki']}"
-                if cmd.get('kd', 0) != 0:
+                if cmd['kd'] != 0:
                     code += f", kd={cmd['kd']}"
-                if not cmd.get('slow_start', True):
+                if not cmd['slow_start']:
                     code += ", slowStart=False"
-                if not cmd.get('slow_down', True):
+                if not cmd['slow_down']:
                     code += ", slowDown=False"
-                if cmd.get('slow_speed_override', 100) != 100:
+                if cmd['slow_speed_override'] != 100:
                     code += f", slowSpeedOverride={cmd['slow_speed_override']}"
-                if cmd.get('start_cm_slow', 0) != 0:
+                if cmd['start_cm_slow'] != 0:
                     code += f", startcmSLOW={cmd['start_cm_slow']}"
                 code += ")\n"
-
+                
             elif cmd['type'] in ('set_pickers_position', 'setRightPickersPosition'):
                 code += f"    setRightPickersPosition("
                 pos = cmd['position']
+                # Use constant name when possible
                 if isinstance(pos, int) and pos in RIGHT_POS_NAMES:
                     code += f"position={RIGHT_POS_NAMES[pos]}"
                 else:
                     code += f"position={repr(pos)}"
-                if not cmd.get('wait', True):
+                if not cmd['wait']:
                     code += ", wait=False"
-                if cmd.get('speed', 600) != 600:
+                if cmd['speed'] != 600:
                     code += f", speed={cmd['speed']}"
                 code += ")\n"
 
@@ -737,9 +742,9 @@ class PathPlanner:
                     code += f"position={LEFT_POS_NAMES[pos]}"
                 else:
                     code += f"position={repr(pos)}"
-                if not cmd.get('wait', True):
+                if not cmd['wait']:
                     code += ", wait=False"
-                if cmd.get('speed', 600) != 600:
+                if cmd['speed'] != 600:
                     code += f", speed={cmd['speed']}"
                 code += ")\n"
 
@@ -750,17 +755,17 @@ class PathPlanner:
                     code += f"position={BACK_POS_NAMES[pos]}"
                 else:
                     code += f"position={repr(pos)}"
-                if not cmd.get('wait', True):
+                if not cmd['wait']:
                     code += ", wait=False"
-                if cmd.get('speed', 600) != 600:
+                if cmd['speed'] != 600:
                     code += f", speed={cmd['speed']}"
                 code += ")\n"
-
+                
             elif cmd['type'] == 'wait':
                 code += f"    wait({cmd['milliseconds']})\n"
-
+                
             code += "\n"
-
+            
         return code
         
     def save_path(self, filename):

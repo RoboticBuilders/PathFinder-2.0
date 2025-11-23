@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends._backend_tk import NavigationToolbar2Tk
-import json
 from matplotlib.figure import Figure
 from matplotlib.transforms import Affine2D
 import numpy as np
@@ -18,7 +17,6 @@ import math
 from typing import List, Tuple, Dict, Optional
 import json
 from PIL import Image 
-import os
 
 from path_planner import PathPlanner
 
@@ -67,8 +65,6 @@ class PathDrawer:
         
         self.setup_ui()
         self.load_field_image()  # Re-enabled with optimizations
-        # Load extracted missions if available to integrate with guidelines
-        self.load_missions()
         
         # Set initial position based on selected start position
         x, y, heading = self.get_start_position()
@@ -77,8 +73,6 @@ class PathDrawer:
         # Initialize plot after UI setup to avoid None errors
         if self.ax is not None:
             self.update_plot()
-        # Pasted code block (appended to generated code)
-        self.pasted_code = ""
         
     def setup_ui(self):
         """Setup the user interface."""
@@ -155,9 +149,6 @@ class PathDrawer:
         ttk.Button(actions_frame, text="Generate Code", command=self.generate_code).pack(fill=tk.X, pady=2)
         ttk.Button(actions_frame, text="Save Path", command=self.save_path).pack(fill=tk.X, pady=2)
         ttk.Button(actions_frame, text="Load Path", command=self.load_path).pack(fill=tk.X, pady=2)
-        ttk.Button(actions_frame, text="Load Missions", command=self.load_missions).pack(fill=tk.X, pady=2)
-        ttk.Button(actions_frame, text="Paste Code", command=self.paste_code_dialog).pack(fill=tk.X, pady=2)
-        ttk.Button(actions_frame, text="Save Missions", command=self.save_missions).pack(fill=tk.X, pady=2)
         
         # Path info
         info_frame = ttk.LabelFrame(parent, text="Path Information", padding=10)
@@ -204,11 +195,6 @@ class PathDrawer:
         self.preview_mode_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(robot_frame, text="Preview Mode (Move with Arrow Keys)", 
                        variable=self.preview_mode_var, command=self.on_preview_mode_change).pack(anchor=tk.W)
-
-        # Edit missions checkbox (enable dragging mission bounding boxes)
-        self.edit_missions_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(robot_frame, text="Edit Missions (drag boxes)", 
-                   variable=self.edit_missions_var).pack(anchor=tk.W)
         
         # Start position control
         start_pos_frame = ttk.LabelFrame(parent, text="Start Position", padding=10)
@@ -291,7 +277,7 @@ Arc System:
         if self.mode_var.get() == "drive":
             # Speed
             ttk.Label(self.params_frame, text="Speed (mm/s):").pack(anchor=tk.W)
-            self.speed_var = tk.StringVar(value="400")
+            self.speed_var = tk.StringVar(value="600")
             ttk.Entry(self.params_frame, textvariable=self.speed_var).pack(fill=tk.X, pady=(0, 10))
             
             # Backward checkbox
@@ -313,7 +299,7 @@ Arc System:
         elif self.mode_var.get() == "turn":
             # Speed
             ttk.Label(self.params_frame, text="Speed (mm/s):").pack(anchor=tk.W)
-            self.speed_var = tk.StringVar(value="400")
+            self.speed_var = tk.StringVar(value="600")
             ttk.Entry(self.params_frame, textvariable=self.speed_var).pack(fill=tk.X, pady=(0, 10))
             
             # Force turn
@@ -333,7 +319,7 @@ Arc System:
             
             # Speed
             ttk.Label(self.params_frame, text="Speed (mm/s):").pack(anchor=tk.W)
-            self.speed_var = tk.StringVar(value="400")
+            self.speed_var = tk.StringVar(value="600")
             ttk.Entry(self.params_frame, textvariable=self.speed_var).pack(fill=tk.X, pady=(0, 10))
             
             # Arc type selection
@@ -367,7 +353,7 @@ Arc System:
         elif self.mode_var.get() == "line_follow":
             # Speed
             ttk.Label(self.params_frame, text="Speed (mm/s):").pack(anchor=tk.W)
-            self.speed_var = tk.StringVar(value="400")
+            self.speed_var = tk.StringVar(value="600")
             ttk.Entry(self.params_frame, textvariable=self.speed_var).pack(fill=tk.X, pady=(0, 10))
             
             # Edge
@@ -399,7 +385,6 @@ Arc System:
             ttk.Label(self.params_frame, text="Speed:").pack(anchor=tk.W)
             self.speed_var = tk.StringVar(value="600")
             ttk.Entry(self.params_frame, textvariable=self.speed_var).pack(fill=tk.X, pady=(0, 10))
-            # (No custom angle control)
             
         elif self.mode_var.get() == "left_pickers":
             # Left pickers positions
@@ -419,7 +404,6 @@ Arc System:
             ttk.Label(self.params_frame, text="Speed:").pack(anchor=tk.W)
             self.speed_var = tk.StringVar(value="600")
             ttk.Entry(self.params_frame, textvariable=self.speed_var).pack(fill=tk.X, pady=(0, 10))
-            # (No custom angle control)
 
         elif self.mode_var.get() == "backarm":
             # Position - Updated to new back-arm positions/functions
@@ -440,7 +424,6 @@ Arc System:
             ttk.Label(self.params_frame, text="Speed:").pack(anchor=tk.W)
             self.speed_var = tk.StringVar(value="600")
             ttk.Entry(self.params_frame, textvariable=self.speed_var).pack(fill=tk.X, pady=(0, 10))
-            # (No custom angle control)
             
         elif self.mode_var.get() == "wait":
             # Wait time
@@ -479,17 +462,6 @@ Arc System:
         self.root.focus_set()  # Set focus to capture keyboard events
         
         self.update_plot()
-        # Mission drag state
-        self.mission_dragging = False
-        self._drag_mission_index = None
-        self._drag_offset = (0.0, 0.0)
-        # Rotation state
-        self.mission_rotating = False
-        self._rotate_mission_index = None
-        self._rotate_start_pointer_angle = 0.0
-        self._rotate_start_mission_angle = 0.0
-        # Selected mission (for keyboard rotation)
-        self.selected_mission_index = None
         
     def update_plot(self):
         """Update the plot with current path."""
@@ -518,58 +490,6 @@ Arc System:
             self.ax.axvline(x=x, color='gray', alpha=0.3, linewidth=0.5)
         for y in range(0, int(self.planner.field_height) + 1, 10):
             self.ax.axhline(y=y, color='gray', alpha=0.3, linewidth=0.5)
-
-        # Draw mission bounding boxes (configurable). If `self.missions` isn't
-        # defined, create a set of reasonable defaults positioned on the field.
-        # Each mission is a dict: {'name','x','y','w','h','color'}
-        if not hasattr(self, 'missions') or not self.missions:
-            fw = self.planner.field_width
-            fh = self.planner.field_height
-            # Default boxes extracted from the field image (auto-extracted and
-            # saved to `tools/extracted_missions.json`). Coordinates are in cm
-            # with origin at bottom-left, matching the planner plotting system.
-            self.missions = [
-                {'name': 'M3',  'x': 12.8,  'y': 88.5,  'w': 8.2,  'h': 9.0,  'color': 'purple'},
-                {'name': 'M4',  'x': 76.4,  'y': 43.1,  'w': 6.6,  'h': 12.1, 'color': 'cyan'},
-                {'name': 'M7',  'x': 140.5, 'y': 14.5,  'w': 22.2, 'h': 16.8, 'color': 'brown'},
-                {'name': 'M10', 'x': 198.3, 'y': 74.0,  'w': 29.9, 'h': 2.6,  'color': 'grey'},
-                {'name': 'M11', 'x': 198.3, 'y': 40.7,  'w': 29.9, 'h': 2.6,  'color': 'grey'},
-                {'name': 'M12', 'x': 201.2, 'y': 45.8,  'w': 25.2, 'h': 25.1, 'color': 'red'},
-                {'name': 'M13', 'x': 206.2, 'y': 96.4,  'w': 10.2, 'h': 10.2, 'color': 'pink'},
-                {'name': 'M14', 'x': 206.2, 'y': 80.8,  'w': 10.2, 'h': 10.2, 'color': 'pink'},
-                {'name': 'M15', 'x': 206.2, 'y': 23.7,  'w': 10.2, 'h': 10.2, 'color': 'pink'},
-                {'name': 'M16', 'x': 206.2, 'y': 8.1,   'w': 10.2, 'h': 10.2, 'color': 'lime'}
-            ]
-
-        for m in self.missions:
-            try:
-                # Ensure angle exists
-                angle = m.get('angle', 0.0)
-                cx = m['x'] + m['w'] / 2.0
-                cy = m['y'] + m['h'] / 2.0
-                # Draw rectangle then rotate about its center
-                rect = patches.Rectangle((m['x'], m['y']), m['w'], m['h'], linewidth=2,
-                                         edgecolor=m.get('color', 'yellow'), facecolor=m.get('color', 'yellow'), alpha=0.12)
-                trans = Affine2D().rotate_deg_around(cx, cy, angle) + self.ax.transData
-                rect.set_transform(trans)
-                # Highlight if selected
-                idx = self.missions.index(m)
-                if getattr(self, 'selected_mission_index', None) == idx:
-                    rect.set_linewidth(3)
-                    rect.set_alpha(0.18)
-                    rect.set_edgecolor('black')
-                self.ax.add_patch(rect)
-                # Label the mission near the top-left of the (unrotated) box
-                label_x = cx - m['w']/2 + 3
-                label_y = cy + m['h']/2 - 3
-                self.ax.annotate(m['name'], (label_x, label_y), fontsize=9,
-                                 color=m.get('color', 'black'), weight='bold',
-                                 bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.6))
-            except Exception:
-                # Ignore malformed mission entries
-                pass
-
-        # (Guidelines feature removed) — missions are still drawn as rotated rectangles
         
         # Draw path history
         if len(self.planner.path_history) > 1:
@@ -785,22 +705,6 @@ Arc System:
             self.on_up_arrow(None)
         elif event.key == 'down':
             self.on_down_arrow(None)
-        elif event.key == 'r' or event.key == 'R':
-            # Rotate selected mission via keyboard: 'r' = +15°, 'R' = -15°
-            idx = getattr(self, 'selected_mission_index', None)
-            if idx is None or idx < 0 or idx >= len(getattr(self, 'missions', [])):
-                return
-            m = self.missions[idx]
-            step = 15.0
-            if event.key == 'R':
-                step = -15.0
-            new_angle = (m.get('angle', 0.0) + step) % 360
-            if new_angle > 180:
-                new_angle -= 360
-            m['angle'] = new_angle
-            if hasattr(self, 'status_label'):
-                self.status_label.config(text=f"Rotated {m['name']} to {m['angle']:.1f}° (keyboard)")
-            self.update_plot()
             
     def on_left_arrow(self, event):
         """Handle left arrow key press."""
@@ -900,53 +804,7 @@ Arc System:
         """Handle mouse press event."""
         if event.inaxes != self.ax:
             return
-
-        # If mission edit mode is enabled, check for clicks inside mission boxes
-        if self.edit_missions_var.get() and event.button == 1:
-            for i, m in enumerate(getattr(self, 'missions', [])):
-                # mission coords are bottom-left origin
-                if event.xdata is None or event.ydata is None:
-                    continue
-                if m['x'] <= event.xdata <= m['x'] + m['w'] and m['y'] <= event.ydata <= m['y'] + m['h']:
-                    # Start dragging this mission
-                    self.mission_dragging = True
-                    self._drag_mission_index = i
-                    self._drag_offset = (event.xdata - m['x'], event.ydata - m['y'])
-                    # mark selection for keyboard rotation
-                    self.selected_mission_index = i
-                    if hasattr(self, 'status_label'):
-                        self.status_label.config(text=f"Dragging mission {m['name']}")
-                    return
-
-        # If mission edit mode is enabled, right-click inside a mission to start rotating
-        if self.edit_missions_var.get() and event.button == 3:
-            for i, m in enumerate(getattr(self, 'missions', [])):
-                if event.xdata is None or event.ydata is None:
-                    continue
-                # To test containment for rotated rectangles approximately, transform
-                # the pointer back by the negative rotation and test against axis-aligned box
-                angle = m.get('angle', 0.0)
-                cx = m['x'] + m['w']/2.0
-                cy = m['y'] + m['h']/2.0
-                # rotate point around center by -angle
-                rad = math.radians(-angle)
-                dx = event.xdata - cx
-                dy = event.ydata - cy
-                rx = dx * math.cos(rad) - dy * math.sin(rad) + cx
-                ry = dx * math.sin(rad) + dy * math.cos(rad) + cy
-                if m['x'] <= rx <= m['x'] + m['w'] and m['y'] <= ry <= m['y'] + m['h']:
-                    # start rotating
-                    self.mission_rotating = True
-                    self._rotate_mission_index = i
-                    # store pointer angle and mission starting angle
-                    self._rotate_start_pointer_angle = math.degrees(math.atan2(event.ydata - cy, event.xdata - cx))
-                    self._rotate_start_mission_angle = m.get('angle', 0.0)
-                    # mark selection for keyboard rotation
-                    self.selected_mission_index = i
-                    if hasattr(self, 'status_label'):
-                        self.status_label.config(text=f"Rotating mission {m['name']}")
-                    return
-
+        
         if event.button == 1:  # Left click
             self.is_drawing = True
             if self.mode_var.get() == "curve":
@@ -970,42 +828,6 @@ Arc System:
             
     def on_mouse_move(self, event):
         """Handle mouse move event."""
-        # If dragging a mission, update its position
-        if self.mission_dragging and event.inaxes == self.ax and self._drag_mission_index is not None:
-            if event.xdata is None or event.ydata is None:
-                return
-            m = self.missions[self._drag_mission_index]
-            ox, oy = self._drag_offset
-            new_x = event.xdata - ox
-            new_y = event.ydata - oy
-            # Clamp to field bounds
-            new_x = max(0, min(self.planner.field_width - m['w'], new_x))
-            new_y = max(0, min(self.planner.field_height - m['h'], new_y))
-            m['x'] = new_x
-            m['y'] = new_y
-            if hasattr(self, 'status_label'):
-                self.status_label.config(text=f"Dragging {m['name']} to ({m['x']:.1f}, {m['y']:.1f})")
-            self.update_plot()
-            return
-        # If rotating, update mission angle
-        if self.mission_rotating and event.inaxes == self.ax and self._rotate_mission_index is not None:
-            if event.xdata is None or event.ydata is None:
-                return
-            m = self.missions[self._rotate_mission_index]
-            cx = m['x'] + m['w']/2.0
-            cy = m['y'] + m['h']/2.0
-            pointer_angle = math.degrees(math.atan2(event.ydata - cy, event.xdata - cx))
-            delta = pointer_angle - self._rotate_start_pointer_angle
-            new_angle = (self._rotate_start_mission_angle + delta) % 360
-            # Normalize to [-180,180]
-            if new_angle > 180:
-                new_angle -= 360
-            m['angle'] = new_angle
-            if hasattr(self, 'status_label'):
-                self.status_label.config(text=f"Rotating {m['name']} to {m['angle']:.1f}°")
-            self.update_plot()
-            return
-
         if not self.is_drawing or event.inaxes != self.ax:
             return
         if self.mode_var.get() == "curve":
@@ -1018,30 +840,6 @@ Arc System:
             
     def on_mouse_release(self, event):
         """Handle mouse release event."""
-        # If we were dragging a mission, finalize the move
-        if self.mission_dragging:
-            self.mission_dragging = False
-            idx = self._drag_mission_index
-            self._drag_mission_index = None
-            self._drag_offset = (0.0, 0.0)
-            if hasattr(self, 'status_label') and idx is not None:
-                m = self.missions[idx]
-                self.status_label.config(text=f"Moved {m['name']} to ({m['x']:.1f}, {m['y']:.1f})")
-            # Redraw to show final position
-            self.update_plot()
-            return
-
-        # If we were rotating a mission, finalize rotation
-        if self.mission_rotating:
-            self.mission_rotating = False
-            ridx = self._rotate_mission_index
-            self._rotate_mission_index = None
-            if hasattr(self, 'status_label') and ridx is not None:
-                m = self.missions[ridx]
-                self.status_label.config(text=f"Rotated {m['name']} to {m.get('angle',0):.1f}°")
-            self.update_plot()
-            return
-
         if not self.is_drawing or event.inaxes != self.ax:
             return
         if self.mode_var.get() == "curve":
@@ -1183,43 +981,6 @@ Arc System:
                 
         except ValueError as e:
             messagebox.showerror("Error", f"Invalid parameter value: {e}")
-
-    def apply_right_picker_angle(self):
-        """Apply a custom angle to the right/front pickers and record the command."""
-        try:
-            angle = float(self.right_picker_angle_var.get())
-            speed = int(self.speed_var.get())
-            self.planner.setRightPickersAngle(angle=angle, speed=speed)
-            if hasattr(self, 'status_label'):
-                self.status_label.config(text=f"Set right pickers angle to {angle:.1f}°")
-            self.update_plot()
-        except Exception as e:
-            messagebox.showerror("Error", f"Invalid angle or speed: {e}")
-
-    def apply_left_picker_angle(self):
-        """Apply a custom angle to the left pickers and record the command."""
-        try:
-            angle = float(self.left_picker_angle_var.get())
-            speed = int(self.speed_var.get())
-            self.planner.setLeftPickersAngle(angle=angle, speed=speed)
-            if hasattr(self, 'status_label'):
-                self.status_label.config(text=f"Set left pickers angle to {angle:.1f}°")
-            self.update_plot()
-        except Exception as e:
-            messagebox.showerror("Error", f"Invalid angle or speed: {e}")
-
-    def apply_backarm_angle(self):
-        """Apply a custom angle to the backarm pickers and record the command."""
-        try:
-            angle = float(self.backarm_angle_var.get())
-            speed = int(self.speed_var.get())
-            self.planner.setBackarmAngle(angle=angle, speed=speed)
-            if hasattr(self, 'status_label'):
-                self.status_label.config(text=f"Set backarm angle to {angle:.1f}°")
-            self.update_plot()
-        except Exception as e:
-            messagebox.showerror("Error", f"Invalid angle or speed: {e}")
-    
             
     def add_arc_segment(self, start=None, end=None):
         """Add an arc segment based on robot's current position and parameters."""
@@ -1336,13 +1097,12 @@ Arc System:
         elif cmd['type'] == 'setBackarmPosition':
             params = {k: v for k, v in cmd.items() if k != 'type'}
             self._replay_setBackarmPosition(**params)
-        
         elif cmd['type'] == 'wait':
             params = {k: v for k, v in cmd.items() if k != 'type'}
             # Update position without adding to commands list
             self._replay_wait(**params)
     
-    def _replay_drive_straight(self, distance, speed=400, backward=False, target_angle=None, 
+    def _replay_drive_straight(self, distance, speed=600, backward=False, target_angle=None, 
                               till_black_line=False, till_white_line=False, detect_stall=False,
                               stop_when_load_above=0, slow_down=True, slow_speed_override=50):
         """Replay drive_straight without adding to commands list."""
@@ -1363,7 +1123,7 @@ Arc System:
         }
         self.planner.commands.append(cmd)
     
-    def _replay_turn_to_angle(self, target_angle, speed=400, force_turn=None, one_wheel_turn=False):
+    def _replay_turn_to_angle(self, target_angle, speed=600, force_turn=None, one_wheel_turn=False):
         """Replay turn_to_angle without adding to commands list."""
         # Calculate angle change
         current_angle = self.planner.heading
@@ -1388,7 +1148,7 @@ Arc System:
         }
         self.planner.commands.append(cmd)
     
-    def _replay_curve(self, radius, angle, speed=400, acceleration=450, deceleration=0, 
+    def _replay_curve(self, radius, angle, speed=600, acceleration=450, deceleration=0, 
                      dont_accelerate=False, dont_decelerate=False):
         """Replay curve without adding to commands list."""
         self.planner._update_position_after_curve(radius, angle)
@@ -1406,7 +1166,7 @@ Arc System:
         }
         self.planner.commands.append(cmd)
     
-    def _replay_awaitarc(self, radius, angle=None, distance=None, speed=400, then="HOLD", wait=True):
+    def _replay_awaitarc(self, radius, angle=None, distance=None, speed=600, then="HOLD", wait=True):
         """Replay awaitarc without adding to commands list."""
         # Calculate the angle if distance is provided
         if distance is not None:
@@ -1426,7 +1186,7 @@ Arc System:
         }
         self.planner.commands.append(cmd)
     
-    def _replay_bezier_curve(self, start, control, end, speed=400, acceleration=450):
+    def _replay_bezier_curve(self, start, control, end, speed=600, acceleration=450):
         """Replay bezier_curve without adding to commands list."""
         points = self.planner._bezier_curve_points(start, control, end, num=50)
         for i, (x, y) in enumerate(points[1:], 1):
@@ -1509,7 +1269,6 @@ Arc System:
         }
         self.planner.commands.append(cmd)
 
-
     def _replay_setLeftPickersPosition(self, position, wait=True, speed=600):
         """Replay setLeftPickersPosition without adding to commands list."""
         cmd = {
@@ -1520,7 +1279,6 @@ Arc System:
         }
         self.planner.commands.append(cmd)
 
-
     def _replay_setBackarmPosition(self, position, wait=True, speed=600):
         """Replay setBackarmPosition without adding to commands list."""
         cmd = {
@@ -1530,7 +1288,6 @@ Arc System:
             'speed': speed
         }
         self.planner.commands.append(cmd)
-
     
     def _replay_wait(self, milliseconds):
         """Replay wait without adding to commands list."""
@@ -1539,56 +1296,6 @@ Arc System:
             'milliseconds': milliseconds
         }
         self.planner.commands.append(cmd)
-
-    def save_missions(self):
-        """Save current missions list to `tools/extracted_missions.json`."""
-        try:
-            out = {
-                'field_cm': [self.planner.field_width, self.planner.field_height],
-                'missions': [ { **m, 'angle': m.get('angle', 0.0) } for m in self.missions ]
-            }
-            with open('tools/extracted_missions.json', 'w') as f:
-                json.dump(out, f, indent=2)
-            messagebox.showinfo('Success', 'Missions saved to tools/extracted_missions.json')
-        except Exception as e:
-            messagebox.showerror('Error', f'Failed to save missions: {e}')
-
-    def load_missions(self):
-        """Load missions from `tools/extracted_missions.json` if present and normalize entries."""
-        try:
-            path = 'tools/extracted_missions.json'
-            if not os.path.exists(path):
-                # No extracted missions - nothing to load
-                return
-            with open(path, 'r') as f:
-                data = json.load(f)
-
-            raw = data.get('missions', [])
-            colors = ['purple', 'cyan', 'brown', 'grey', 'red', 'pink', 'lime', 'orange', 'green', 'blue', 'yellow']
-            loaded = []
-            for i, m in enumerate(raw):
-                try:
-                    name = m.get('name', f'M{i+1}')
-                    x = float(m.get('x', m.get('cx', 0)))
-                    y = float(m.get('y', m.get('cy', 0)))
-                    w = float(m.get('w', 10))
-                    h = float(m.get('h', 10))
-                    angle = float(m.get('angle', 0.0))
-                    color = m.get('color') or colors[i % len(colors)]
-                    loaded.append({'name': name, 'x': x, 'y': y, 'w': w, 'h': h, 'angle': angle, 'color': color})
-                except Exception:
-                    # skip malformed entry
-                    continue
-
-            if loaded:
-                self.missions = loaded
-                # ensure selection index is valid
-                self.selected_mission_index = None
-                if hasattr(self, 'status_label'):
-                    self.status_label.config(text=f"Loaded {len(self.missions)} missions")
-                self.update_plot()
-        except Exception as e:
-            messagebox.showerror('Error', f'Failed to load missions: {e}')
             
     def generate_code(self):
         """Generate and display code."""
@@ -1598,11 +1305,6 @@ Arc System:
             
         # Generate base code
         code = self.planner.generate_code("drawn_path")
-
-        # Append any pasted custom code the user provided
-        if getattr(self, 'pasted_code', ""):
-            code += "\n\n# --- Pasted Code (imported) ---\n"
-            code += self.pasted_code
         
         # Add waitForRightButtonPress() after drive and turn commands if checkbox is checked
         if self.wait_button_var.get():
@@ -1696,247 +1398,6 @@ Arc System:
         if filename:
             self.planner.save_path(filename)
             messagebox.showinfo("Success", f"Path saved to {filename}")
-
-    def paste_code_dialog(self):
-        """Open a dialog where the user can paste a code block to append to generated code.
-
-        If the pasted block contains a line like:
-            POSITION: x,y,heading
-        then the robot position will be moved to those coordinates (x,y in cm, heading in degrees).
-        """
-        dlg = tk.Toplevel(self.root)
-        dlg.title("Paste Code Block")
-        dlg.geometry("800x600")
-
-        instructions = ttk.Label(dlg, text="Paste your code below. To move the robot after import, include a line:\nPOSITION: x,y,heading", wraplength=780)
-        instructions.pack(padx=10, pady=(10, 0))
-
-        text = tk.Text(dlg, wrap=tk.NONE, font=("Courier", 10))
-        text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-
-        btn_frame = ttk.Frame(dlg)
-        btn_frame.pack(fill=tk.X, padx=10, pady=(0,10))
-
-        def do_import():
-            pasted = text.get(1.0, tk.END).rstrip()
-            if not pasted:
-                messagebox.showwarning("Warning", "No code pasted")
-                return
-            # Save pasted code
-            self.pasted_code = pasted
-            # Attempt to parse a POSITION comment
-            moved = self._apply_position_from_text(pasted)
-            # Also parse simulator function calls and import them as commands
-            imported = self._parse_and_import_functions(pasted)
-            if moved or imported:
-                messagebox.showinfo("Imported", f"Code imported. POSITION applied: {moved}. Commands imported: {imported}.")
-            else:
-                messagebox.showinfo("Imported", "Code imported. No POSITION comment or recognized commands found.")
-            dlg.destroy()
-            self.update_plot()
-
-        def do_cancel():
-            dlg.destroy()
-
-        ttk.Button(btn_frame, text="Import", command=do_import).pack(side=tk.RIGHT, padx=(0,5))
-        ttk.Button(btn_frame, text="Cancel", command=do_cancel).pack(side=tk.RIGHT)
-
-    def _apply_position_from_text(self, text_block: str) -> bool:
-        """Parse POSITION comment and move robot if found.
-
-        Looks for lines like:
-            POSITION: 120.5, 30.0, 90
-        Returns True if position was found and applied.
-        """
-        import re
-        # Look for POSITION: x,y,heading (allow spaces)
-        m = re.search(r"POSITION\s*:\s*([+-]?\d+(?:\.\d*)?)\s*,\s*([+-]?\d+(?:\.\d*)?)\s*,\s*([+-]?\d+(?:\.\d*)?)", text_block, re.IGNORECASE)
-        if not m:
-            # Try JSON-style position
-            try:
-                parsed = json.loads(text_block)
-                if isinstance(parsed, dict) and 'position' in parsed:
-                    pos = parsed['position']
-                    if isinstance(pos, (list, tuple)) and len(pos) >= 3:
-                        x, y, heading = float(pos[0]), float(pos[1]), float(pos[2])
-                        self._set_robot_position(x, y, heading)
-                        return True
-            except Exception:
-                pass
-            return False
-
-        try:
-            x = float(m.group(1))
-            y = float(m.group(2))
-            heading = float(m.group(3))
-            self._set_robot_position(x, y, heading)
-            return True
-        except Exception:
-            return False
-
-    def _set_robot_position(self, x: float, y: float, heading: float):
-        """Move the planner's robot to the given position and record it in history."""
-        # Clamp to field bounds
-        x = max(0.0, min(self.planner.field_width, x))
-        y = max(0.0, min(self.planner.field_height, y))
-        # Normalize heading to [-180,180]
-        h = heading % 360
-        if h > 180:
-            h -= 360
-        self.planner.x = x
-        self.planner.y = y
-        self.planner.heading = h
-        # Append to history and set start point
-        self.planner.path_history.append((x, y, h))
-        self.start_point = (x, y)
-
-    def _parse_and_import_functions(self, text_block: str) -> int:
-        """Parse common simulator-generated function calls and import them as planner commands.
-
-        Returns the number of commands imported.
-        Heuristics:
-        - Distances > 1000 are treated as mm and converted to cm (/10).
-        - Radius arguments are treated similarly.
-        """
-        import re
-        imported = 0
-
-        # Helper to convert possible mm->cm
-        def _to_cm(val: float) -> float:
-            try:
-                v = float(val)
-            except Exception:
-                return 0.0
-            if abs(v) > 1000:  # likely mm
-                return v / 10.0
-            return v
-
-        # Patterns for common function calls
-        patterns = [
-            # gyroStraightWithDrive(distance, speed, backward=False, target_angle=0, till_black_line=False, till_white_line=False)
-            (r"gyroStraightWithDrive\s*\(([^)]*)\)", 'drive_straight'),
-            # turnToAngle(angle, speed, force_turn=None)
-            (r"turnToAngle\s*\(([^)]*)\)", 'turn_to_angle'),
-            # curve(radius, angle, speed)
-            (r"curve\s*\(([^)]*)\)", 'curve'),
-            # awaitarc(radius, angle=None, distance=None, speed=..., then='HOLD', wait=True)
-            (r"awaitarc\s*\(([^)]*)\)", 'awaitarc'),
-            # followBlackLinePID(distance_mm, speed, edge)
-            (r"followBlackLinePID\s*\(([^)]*)\)", 'follow_line'),
-            # followLine(distance_mm, speed, edge)
-            (r"followLine\s*\(([^)]*)\)", 'follow_line'),
-        ]
-
-        for pat, kind in patterns:
-            for m in re.finditer(pat, text_block, re.IGNORECASE | re.MULTILINE):
-                args = m.group(1)
-                # Split arguments naively by comma but keep simple key=val
-                parts = [p.strip() for p in re.split(r',(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)', args) if p.strip()]
-                kwargs = {}
-                positionals = []
-                for p in parts:
-                    if '=' in p:
-                        k, v = p.split('=', 1)
-                        kwargs[k.strip()] = v.strip()
-                    else:
-                        positionals.append(p)
-
-                try:
-                    if kind == 'drive_straight':
-                        # Expect first positional = distance, second = speed
-                        if positionals:
-                            dist_raw = float(positionals[0])
-                            distance_cm = _to_cm(dist_raw)
-                        else:
-                            distance_cm = _to_cm(kwargs.get('distance', 0))
-                        speed = int(float(positionals[1]) if len(positionals) > 1 else float(kwargs.get('speed', 400)))
-                        backward = kwargs.get('backward', 'False').lower() in ('true', '1')
-                        target_angle = kwargs.get('target_angle')
-                        if target_angle is not None:
-                            try:
-                                target_angle = float(target_angle)
-                            except Exception:
-                                target_angle = None
-                        cmd = {
-                            'type': 'drive_straight',
-                            'distance': distance_cm,
-                            'speed': speed,
-                            'backward': backward,
-                            'target_angle': target_angle,
-                            'till_black_line': kwargs.get('till_black_line', 'False').lower() in ('true','1'),
-                            'till_white_line': kwargs.get('till_white_line', 'False').lower() in ('true','1')
-                        }
-                        # Replay/import
-                        self.replay_command(cmd)
-                        imported += 1
-
-                    elif kind == 'turn_to_angle':
-                        # First positional = angle
-                        if positionals:
-                            angle = float(positionals[0])
-                        else:
-                            angle = float(kwargs.get('angle', 0))
-                        speed = int(float(positionals[1]) if len(positionals) > 1 else float(kwargs.get('speed', 400)))
-                        # Store target_angle as negative to match replay_command's expectations
-                        cmd = {'type': 'turn_to_angle', 'target_angle': -angle, 'speed': speed}
-                        self.replay_command(cmd)
-                        imported += 1
-
-                    elif kind == 'curve':
-                        # curve(radius, angle, speed)
-                        if positionals:
-                            radius_raw = float(positionals[0])
-                            radius_cm = _to_cm(radius_raw)
-                            angle = float(positionals[1]) if len(positionals) > 1 else float(kwargs.get('angle', 90))
-                        else:
-                            radius_cm = _to_cm(kwargs.get('radius', 0))
-                            angle = float(kwargs.get('angle', 90))
-                        cmd = {'type': 'curve', 'radius': radius_cm, 'angle': angle, 'speed': int(float(kwargs.get('speed', 400)))}
-                        self.replay_command(cmd)
-                        imported += 1
-
-                    elif kind == 'awaitarc':
-                        # awaitarc(radius, angle=None, distance=None, speed=...)
-                        # Support both positional and keyword forms
-                        radius_raw = None
-                        angle = None
-                        distance = None
-                        if positionals:
-                            radius_raw = float(positionals[0])
-                            if len(positionals) > 1:
-                                # could be angle or distance
-                                angle = float(positionals[1])
-                        else:
-                            radius_raw = float(kwargs.get('radius', 0))
-                            if 'angle' in kwargs:
-                                angle = float(kwargs.get('angle'))
-                            if 'distance' in kwargs:
-                                distance = float(kwargs.get('distance'))
-                        radius_cm = _to_cm(radius_raw)
-                        speed = int(float(kwargs.get('speed', 400)))
-                        cmd = {'type': 'awaitarc', 'radius': radius_cm, 'angle': angle, 'distance': distance, 'speed': speed, 'then': kwargs.get('then','HOLD'), 'wait': kwargs.get('wait','True').lower() in ('true','1')}
-                        self.replay_command(cmd)
-                        imported += 1
-
-                    elif kind == 'follow_line':
-                        # followLine(distance_mm, speed, edge)
-                        if positionals:
-                            dist_raw = float(positionals[0])
-                            # follow_line expects distance in mm in replay; keep as-is
-                            distance_mm = dist_raw
-                        else:
-                            distance_mm = float(kwargs.get('distance', 0))
-                        speed = int(float(positionals[1]) if len(positionals) > 1 else float(kwargs.get('speed', 400)))
-                        edge = kwargs.get('edge', positionals[2] if len(positionals) > 2 else 'left')
-                        cmd = {'type': 'follow_line', 'distance': distance_mm, 'speed': speed, 'edge': edge}
-                        self.replay_command(cmd)
-                        imported += 1
-
-                except Exception:
-                    # skip malformed parse
-                    continue
-
-        return imported
             
     def load_path(self):
         """Load a saved path."""
