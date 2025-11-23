@@ -49,7 +49,7 @@ class PathDrawer:
         self.continue_path = True  # Whether to continue from last position
         
         # Robot visualization
-        self.robot_size = 15  # Robot size in cm
+        self.robot_size = 21  # Robot size in cm
         self.show_robot = True  # Whether to show robot
         self.robot_preview_mode = False  # Whether in preview mode (moving with arrow keys)
         
@@ -555,14 +555,14 @@ Arc System:
             )
 
             # Apply rotation and translation to center the robot
-            transform = (Affine2D().rotate_deg(-self.planner.heading) + 
+            transform = (Affine2D().rotate_deg(self.planner.heading) + 
                          Affine2D().translate(self.planner.x, self.planner.y))
             robot_rect.set_transform(transform + self.ax.transData)
             self.ax.add_patch(robot_rect)
 
             # Draw heading indicator
-            dx = math.cos(math.radians(-self.planner.heading)) * (self.robot_size/2 + 3)
-            dy = math.sin(math.radians(-self.planner.heading)) * (self.robot_size/2 + 3)
+            dx = math.cos(math.radians(self.planner.heading)) * (self.robot_size/2 + 3)
+            dy = math.sin(math.radians(self.planner.heading)) * (self.robot_size/2 + 3)
             self.ax.arrow(self.planner.x, self.planner.y, dx, dy, head_width=2, head_length=2, fc='white', ec='white', linewidth=2)
 
             # Draw historical robot positions (smaller and faded)
@@ -576,14 +576,14 @@ Arc System:
                     )
 
                     # Apply rotation and translation to center the robot
-                    transform = (Affine2D().rotate_deg(-heading) + 
+                    transform = (Affine2D().rotate_deg(heading) + 
                                  Affine2D().translate(x, y))
                     robot_rect.set_transform(transform + self.ax.transData)
                     self.ax.add_patch(robot_rect)
 
                     # Draw heading indicator
-                    dx = math.cos(math.radians(-heading)) * (self.robot_size/2 + 2)
-                    dy = math.sin(math.radians(-heading)) * (self.robot_size/2 + 2)
+                    dx = math.cos(math.radians(heading)) * (self.robot_size/2 + 2)
+                    dy = math.sin(math.radians(heading)) * (self.robot_size/2 + 2)
                     self.ax.arrow(x, y, dx, dy, head_width=1, head_length=1, fc='red', ec='red', alpha=0.5)
         
         # Draw start point
@@ -741,6 +741,8 @@ Arc System:
         if x is None or y is None or theta is None:
             messagebox.showerror("Invalid Input", "Please enter numeric values for X, Y, and Theta (or paste as 'X,Y,Theta' in the X field).")
             return
+
+        theta *= -1
 
         # Move planner and record the command
         self.planner.move_to(x, y, theta, add_command=True)
