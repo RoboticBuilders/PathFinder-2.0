@@ -223,6 +223,22 @@ class PathDrawer:
         
         ttk.Button(continue_frame, text="Reset to Origin", 
                   command=self.reset_to_origin).pack(fill=tk.X, pady=(5, 0))
+
+        # Goto Position controls
+        goto_frame = ttk.Frame(continue_frame)
+        goto_frame.pack(fill=tk.X, pady=(5, 0))
+        ttk.Label(goto_frame, text="Goto X:").grid(row=0, column=0, sticky=tk.W)
+        self.goto_x_var = tk.StringVar(value="0")
+        ttk.Entry(goto_frame, textvariable=self.goto_x_var, width=8).grid(row=0, column=1, padx=(4,8))
+        ttk.Label(goto_frame, text="Y:").grid(row=0, column=2, sticky=tk.W)
+        self.goto_y_var = tk.StringVar(value="0")
+        ttk.Entry(goto_frame, textvariable=self.goto_y_var, width=8).grid(row=0, column=3, padx=(4,8))
+        ttk.Label(goto_frame, text="Theta:").grid(row=0, column=4, sticky=tk.W)
+        self.goto_theta_var = tk.StringVar(value="0")
+        ttk.Entry(goto_frame, textvariable=self.goto_theta_var, width=8).grid(row=0, column=5, padx=(4,8))
+        # Place the Move To button on its own row so it remains visible in narrow panels
+        move_btn = ttk.Button(goto_frame, text="Move To", command=self.on_move_to)
+        move_btn.grid(row=1, column=0, columnspan=7, sticky=tk.EW, pady=(6,0))
         
         # Instructions
         instructions_frame = ttk.LabelFrame(parent, text="Instructions", padding=10)
@@ -537,18 +553,18 @@ Arc System:
                 self.robot_size, self.robot_size,
                 linewidth=2, edgecolor='blue', facecolor='blue', alpha=0.6
             )
-            
+
             # Apply rotation and translation to center the robot
-            transform = (Affine2D().rotate_deg(self.planner.heading) + 
-                        Affine2D().translate(self.planner.x, self.planner.y))
+            transform = (Affine2D().rotate_deg(-self.planner.heading) + 
+                         Affine2D().translate(self.planner.x, self.planner.y))
             robot_rect.set_transform(transform + self.ax.transData)
             self.ax.add_patch(robot_rect)
-            
+
             # Draw heading indicator
-            dx = math.cos(math.radians(self.planner.heading)) * (self.robot_size/2 + 3)
-            dy = math.sin(math.radians(self.planner.heading)) * (self.robot_size/2 + 3)
+            dx = math.cos(math.radians(-self.planner.heading)) * (self.robot_size/2 + 3)
+            dy = math.sin(math.radians(-self.planner.heading)) * (self.robot_size/2 + 3)
             self.ax.arrow(self.planner.x, self.planner.y, dx, dy, head_width=2, head_length=2, fc='white', ec='white', linewidth=2)
-            
+
             # Draw historical robot positions (smaller and faded)
             for i, (x, y, heading) in enumerate(self.planner.path_history):
                 if i % max(1, len(self.planner.path_history) // 10) == 0:  # Show every 10th position
@@ -558,16 +574,16 @@ Arc System:
                         self.robot_size, self.robot_size,
                         linewidth=1, edgecolor='red', facecolor='red', alpha=0.2
                     )
-                    
+
                     # Apply rotation and translation to center the robot
-                    transform = (Affine2D().rotate_deg(heading) + 
-                                Affine2D().translate(x, y))
+                    transform = (Affine2D().rotate_deg(-heading) + 
+                                 Affine2D().translate(x, y))
                     robot_rect.set_transform(transform + self.ax.transData)
                     self.ax.add_patch(robot_rect)
-                    
+
                     # Draw heading indicator
-                    dx = math.cos(math.radians(heading)) * (self.robot_size/2 + 2)
-                    dy = math.sin(math.radians(heading)) * (self.robot_size/2 + 2)
+                    dx = math.cos(math.radians(-heading)) * (self.robot_size/2 + 2)
+                    dy = math.sin(math.radians(-heading)) * (self.robot_size/2 + 2)
                     self.ax.arrow(x, y, dx, dy, head_width=1, head_length=1, fc='red', ec='red', alpha=0.5)
         
         # Draw start point
@@ -693,6 +709,41 @@ Arc System:
         """Reset robot position to selected start position."""
         x, y, heading = self.get_start_position()
         self.planner.reset_position(x, y, heading)
+        self.update_plot()
+
+    def on_move_to(self):
+        """Handler for Move To button - reads X,Y,Theta and moves planner."""
+        # Try parsing three separate fields first
+        x_raw = self.goto_x_var.get().strip()
+        y_raw = self.goto_y_var.get().strip()
+        t_raw = self.goto_theta_var.get().strip()
+
+        def try_float(s):
+            try:
+                return float(s)
+            except Exception:
+                return None
+
+        x = try_float(x_raw)
+        y = try_float(y_raw)
+        theta = try_float(t_raw)
+
+        # If parsing separate fields failed, allow combined comma-separated input in the X field
+        if x is None or y is None or theta is None:
+            # Try to parse x_raw as comma/space-separated triple
+            combined = x_raw.replace(';', ',')
+            parts = [p.strip() for p in combined.split(',') if p.strip()]
+            if len(parts) == 3:
+                x = try_float(parts[0])
+                y = try_float(parts[1])
+                theta = try_float(parts[2])
+
+        if x is None or y is None or theta is None:
+            messagebox.showerror("Invalid Input", "Please enter numeric values for X, Y, and Theta (or paste as 'X,Y,Theta' in the X field).")
+            return
+
+        # Move planner and record the command
+        self.planner.move_to(x, y, theta, add_command=True)
         self.update_plot()
         
     def on_key_press(self, event):
@@ -1101,6 +1152,9 @@ Arc System:
             params = {k: v for k, v in cmd.items() if k != 'type'}
             # Update position without adding to commands list
             self._replay_wait(**params)
+        elif cmd['type'] == 'set_position':
+            params = {k: v for k, v in cmd.items() if k != 'type'}
+            self._replay_set_position(**params)
     
     def _replay_drive_straight(self, distance, speed=600, backward=False, target_angle=None, 
                               till_black_line=False, till_white_line=False, detect_stall=False,
@@ -1258,6 +1312,18 @@ Arc System:
             'speed': speed
         }
         self.planner.commands.append(cmd)
+
+    def _replay_set_position(self, x, y, theta):
+        """Replay a set_position command by moving the planner pose and recording the command."""
+        # Update planner pose
+        try:
+            x = float(x)
+            y = float(y)
+            theta = float(theta)
+        except Exception:
+            return
+        # Update the planner and add command
+        self.planner.move_to(x, y, theta, add_command=True)
 
     def _replay_setRightPickersPosition(self, position, wait=True, speed=600):
         """Replay setRightPickersPosition without adding to commands list."""

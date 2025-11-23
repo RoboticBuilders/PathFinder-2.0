@@ -427,6 +427,26 @@ class PathPlanner:
         }
         
         self.commands.append(cmd)
+
+    def move_to(self, x, y, theta, add_command=True):
+        """
+        Move (teleport) the planner's robot to a specific x, y, theta (degrees).
+        If add_command is True the move will be recorded as a 'set_position' command.
+        """
+        # Update internal pose
+        self.x = x
+        self.y = y
+        self.heading = theta
+        self._add_to_history()
+
+        if add_command:
+            cmd = {
+                'type': 'set_position',
+                'x': x,
+                'y': y,
+                'theta': theta
+            }
+            self.commands.append(cmd)
         
     def visualize_path(self, show_grid=True, show_robot=True, show_commands=True, 
                       field_image=None, save_path=None):
@@ -629,6 +649,9 @@ class PathPlanner:
                 imports_needed.add('PICK_BALLS, DROP_BALLS, SLIDE_BALL, PICK_BLOCKS_BACKARM, HOLD_BLOCKS_BACKARM, RYGW_SWAP_PICK')
             elif cmd['type'] in ['drive_straight', 'turn_to_angle', 'curve', 'awaitarc', 'follow_line']:
                 imports_needed.add('Stop')
+            elif cmd['type'] == 'set_position':
+                # no constant imports needed for raw coordinates
+                pass
                 
         if imports_needed:
             code += "    # Import required constants\n"
